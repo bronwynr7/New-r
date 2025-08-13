@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <title>小游戏合集 (Snake / 2048 / TicTacToe / Breakout / Flappy)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <style>
+    :root {
+      --bg:#0f172a;
+      --panel:#1e293b;
+      --panel2:#24324a;
+      --accent:#3b82f6;
+      --accent2:#f59e0b;
+      --danger:#ef4444;
+      --ok:#10b981;
+      --text:#e2e8f0;
+      --muted:#94a3b8;
+      --radius:12px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    }
+    * { box-sizing:border-box; }
+    body {
+      margin:0;
+      background:linear-gradient(145deg,#0f172a,#152133 60%,#0f172a);
+      color:var(--text);
+      font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial;
+      min-height:100vh;
+      display:flex;
+      flex-direction:column;
+    }
+    header {
+      display:flex;
+      align-items:center;
+      gap:.75rem;
+      padding:.9rem 1.2rem;
+      background:#0d1523cc;
+      backdrop-filter:blur(10px);
+      position:sticky;
+      top:0;
+      z-index:10;
+    }
+    header h1 {
+      font-size:1rem;
+      letter-spacing:.5px;
+      margin:0;
+      font-weight:600;
+      background:linear-gradient(90deg,#60a5fa,#f472b6,#fbbf24);
+      -webkit-background-clip:text;
+      color:transparent;
+    }
+    nav { display:flex; flex-wrap:wrap; gap:.5rem; margin-left:auto;}
+    nav button {
+      background:var(--panel);
+      color:var(--text);
+      border:1px solid #334155;
+      padding:.45rem .85rem;
+      font-size:.75rem;
+      border-radius:1000px;
+      cursor:pointer;
+      letter-spacing:.5px;
+      display:flex;
+      align-items:center;
+      gap:.35rem;
+      transition:.25s;
+    }
+    nav button.active, nav button:hover {
+      background:var(--accent);
+      border-color:var(--accent);
+      box-shadow:0 0 0 2px #1d4ed8aa;
+    }
+    main {
+      width:100%;
+      max-width:1180px;
+      margin:1rem auto 2rem;
+      padding:0 1rem 3rem;
+      flex:1;
+    }
+    section.game {
+      display:none;
+      animation:fade .4s;
+    }
+    section.game.active { display:block; }
+    @keyframes fade {
+      from {opacity:0; transform:translateY(6px);}
+      to {opacity:1; transform:translateY(0);}
+    }
+    .panel {
+      background:var(--panel);
+      border:1px solid #2c3d52;
+      border-radius:var(--radius);
+      padding:1rem 1.2rem 1.3rem;
+      box-shadow:0 6px 18px -8px rgba(0,0,0,.55), 0 2px 4px -1px rgba(0,0,0,.4);
+      position:relative;
+      overflow:hidden;
+    }
+    .panel h2 {
+      margin:0 0 .9rem;
+      font-size:1rem;
+      font-weight:600;
+      letter-spacing:.5px;
+    }
+    .hint {
+      font-size:.65rem;
+      text-transform:uppercase;
+      letter-spacing:1px;
+      color:var(--muted);
+      background:#334155;
+      display:inline-block;
+      padding:.3rem .55rem;
+      border-radius:6px;
+      margin:0 .4rem .6rem 0;
+      font-weight:600;
+    }
+    .toolbar {
+      display:flex;
+      flex-wrap:wrap;
+      gap:.5rem;
+      margin:.4rem 0 1rem;
+    }
+    .toolbar button {
+      background:#334155;
+      border:1px solid #415873;
+      color:var(--text);
+      font-size:.7rem;
+      padding:.45rem .9rem;
+      border-radius:8px;
+      cursor:pointer;
+      letter-spacing:.5px;
+      font-weight:500;
+      transition:.2s;
+    }
+    .toolbar button:hover { background:#3b4f69; }
+    .toolbar button.primary {
+      background:var(--accent);
+      border-color:var(--accent);
+      color:#fff;
+    }
+    canvas {
+      image-rendering:pixelated;
+      background:#0b1220;
+      border:1px solid #233347;
+      border-radius:10px;
+      display:block;
+      max-width:100%;
+    }
+    .grid2048 {
+      width:320px;
+      background:#182233;
+      padding:10px;
+      border-radius:14px;
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:10px;
+      margin:0 0 1rem;
+      border:1px solid #23384f;
+    }
+    .tile {
+      aspect-ratio:1/1;
+      border-radius:10px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-weight:600;
+      font-size:1rem;
+      position:relative;
+      color:#fff;
+      font-family:var(--mono);
+      background:#1f2f44;
+      box-shadow:inset 0 0 0 1px #314864, 0 2px 4px -1px #000;
+      transition:.15s;
+    }
+    .tile[data-v="0"] { background:#1e293b33; color:#334155; box-shadow:none;}
+    .tile[data-v="2"] { background:#334155;}
+    .tile[data-v="4"] { background:#2563eb;}
+    .tile[data-v="8"] { background:#db2777;}
+    .tile[data-v="16"] { background:#ea580c;}
+    .tile[data-v="32"] { background:#d97706;}
+    .tile[data-v="64"] { background:#0d9488;}
+    .tile[data-v="128"] { background:#9333ea;}
+    .tile[data-v="256"] { background:#047857;}
+    .tile[data-v="512"] { background:#dc2626;}
+    .tile[data-v="1024"] { background:#0ea5e9;}
+    .tile[data-v="2048"] { background:#16a34a;}
+    .status-box {
+      display:flex;
+      gap:1rem;
+      flex-wrap:wrap;
+      margin:.5rem 0 1rem;
+    }
+    .badge {
+      background:#1e293b;
+      border:1px solid #334155;
+      padding:.5rem .75rem;
+      border-radius:8px;
+      font-size:.65rem;
+      display:flex;
+      flex-direction:column;
+      min-width:90px;
+      gap:.2rem;
+    }
+    .badge strong { font-size:.85rem; color:#fff; }
+    .log {
+      font-family:var(--mono);
+      font-size:.6rem;
+      background:#111c2b;
+      border:1px solid #1f2f33;
+      padding:.6rem .7rem;
+      border-radius:8px;
+      max-height:160px;
+      overflow:auto;
+      line-height:1.4;
+      white-space:pre-wrap;
+    }
+    .board3 {
+      display:grid;
+      grid-template-columns:repeat(3,90px);
+      gap:8px;
+      margin:.4rem 0 1rem;
+    }
+    .cell {
+      width:90px; aspect-ratio:1/1;
+      display:flex; align-items:center; justify-content:center;
+      background:#1d2a3a;
+      border-radius:10px;
+      font-size:2rem;
+      font-weight:600;
+      cursor:pointer;
+      transition:.25s;
+      user-select:none;
+      box-shadow:inset 0 0 0 1px #2f465e;
+    }
+    .cell:hover { background:#233447; }
+    .cell.win { background:var(--accent2); color:#000; box-shadow:0 0 0 2px #f59e0b55; }
+    .msg { font-size:.75rem; letter-spacing:.5px; margin:.5rem 0 .8rem; color:var(--muted);}
+    .flex { display:flex; gap:1rem; flex-wrap:wrap; }
+    .flex-col { display:flex; flex-direction:column; gap:.6rem; }
+    .inline-code {
+      background:#1e293b;
+      padding:.15rem .4rem;
+      font-family:var(--mono);
+      font-size:.65rem;
+      border-radius:4px;
+      color:#60a5fa;
+    }
+    .divider {
+      height:1px;
+      background:linear-gradient(90deg,transparent,#1e293b 10%,#1e293b 90%,transparent);
+      margin:1.3rem 0;
+    }
+    .small {
+      font-size:.6rem;
+      color:#64748b;
+      letter-spacing:.5px;
+      text-transform:uppercase;
+    }
+    footer {
+      text-align:center;
+      font-size:.6rem;
+      padding:1.8rem 1rem 4rem;
+      color:#475569;
+    }
+    .game-wrapper { display:flex; flex-wrap:wrap; gap:2rem; align-items:flex-start; }
+    .score-large {
+      font-size:2.4rem;
+      font-weight:700;
+      margin:0 0 .3rem;
+      background:linear-gradient(90deg,#3b82f6,#f472b6);
+      -webkit-background-clip:text;
+      color:transparent;
+    }
+    .pulse { animation:pulse 2.4s infinite; }
+    @keyframes pulse {
+      0% {opacity:.35;}
+      50% {opacity:1;}
+      100% {opacity:.35;}
+    }
+    .btn-flat {
+      background:#1e293b;
+      border:1px solid #334155;
+      padding:.5rem .9rem;
+      font-size:.65rem;
+      color:#e2e8f0;
+      border-radius:8px;
+      cursor:pointer;
+      letter-spacing:.5px;
+      display:inline-flex;
+      gap:.4rem;
+      align-items:center;
+      font-weight:500;
+      transition:.25s;
+    }
+    .btn-flat:hover { background:#273549;}
+    .btn-accent { background:var(--accent); border-color:var(--accent); color:#fff;}
+    .hidden { display:none !important; }
+    .warning {
+      background:#f59e0b22;
+      border:1px solid #f59e0b55;
+      padding:.5rem .7rem;
+      font-size:.65rem;
+      border-radius:8px;
+      line-height:1.4;
+    }
+    .list-note {
+      display:grid;
+      gap:.4rem;
+      font-size:.65rem;
+      margin:.6rem 0 0;
+    }
+    .list-note > div {
+      background:#132033;
+      padding:.45rem .65rem;
+      border-radius:6px;
+      border:1px solid #1f3147;
+    }
+    @media (max-width:860px) {
+      .board3 { grid-template-columns:repeat(3,70px); }
+      .cell { width:70px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>小游戏合集</h1>
+    <nav id="tabs"></nav>
+  </header>
+  <main>
+    <!-- SNAKE -->
+    <section class="game active" data-game="snake">
+      <div class="panel">
+        <h2>贪吃蛇 Snake</h2>
+        <div class="toolbar">
+          <button id="snakeStart" class="primary">开始 / 重开 (Enter)</button>
+          <button id="snakePause">暂停 / 继续 (P)</button>
+          <button id="snakeSpeedDown">减速 [-]</button>
+          <button id="snakeSpeedUp">加速 [+]</button>
+        </div>
+        <div class="status-box">
+          <div class="badge"><span class="small">Score</span><strong id="snakeScore">0</strong></div>
+          <div class="badge"><span class="small">速度</span><strong><span id="snakeSpeed">8</span> FPS</strong></div>
+          <div class="badge"><span class="small">长度</span><strong id="snakeLength">0</strong></div>
+        </div>
+        <canvas id="snakeCanvas" width="420" height="420"></canvas>
+        <div class="msg">
+          方向键 / WASD 控制；吃绿色食物得分。撞墙或撞到自己则结束。可用 [+][-] 动态调节速度。
+        </div>
+      </div>
+    </section>
+
+    <!-- 2048 -->
+    <section class="game" data-game="2048">
+      <div class="panel">
+        <h2>数字合成 2048</h2>
+        <div class="toolbar">
+          <button id="g2048Restart" class="primary">重新开始 (R)</button>
+          <button id="g2048Undo">撤销 (U)</button>
+        </div>
+        <div class="status-box">
+          <div class="badge"><span class="small">Score</span><strong id="g2048Score">0</strong></div>
+          <div class="badge"><span class="small">Best</span><strong id="g2048Best">0</strong></div>
+          <div class="badge"><span class="small">状态</span><strong id="g2048State">进行中</strong></div>
+        </div>
+        <div class="grid2048" id="g2048Grid"></div>
+        <div class="msg">
+          方向键或 WASD 移动。相同数字合并。达成 2048 即胜利，继续挑战更高数字。
+        </div>
+      </div>
+    </section>
+
+    <!-- TicTacToe -->
+    <section class="game" data-game="tictactoe">
+      <div class="panel">
+        <h2>井字棋 TicTacToe</h2>
+        <div class="toolbar">
+          <button id="tttRestart" class="primary">重置 (R)</button>
+          <button id="tttMode">模式: 玩家 vs AI</button>
+        </div>
+          <div class="status-box">
+            <div class="badge"><span class="small">回合</span><strong id="tttTurn">X</strong></div>
+            <div class="badge"><span class="small">模式</span><strong id="tttModeText">玩家 vs AI</strong></div>
+            <div class="badge"><span class="small">结果</span><strong id="tttResult">-</strong></div>
+          </div>
+        <div class="board3" id="tttBoard"></div>
+        <div class="msg">
+          点击格子落子。AI 为简单策略 + 中心优先。可切换 玩家 vs 玩家。
+        </div>
+      </div>
+    </section>
+
+    <!-- Breakout -->
+    <section class="game" data-game="breakout">
+      <div class="panel">
+        <h2>打砖块 Breakout</h2>
+        <div class="toolbar">
+          <button id="brStart" class="primary">开始 / 重开 (Enter)</button>
+          <button id="brPause">暂停 (Space)</button>
+        </div>
+        <div class="status-box">
+          <div class="badge"><span class="small">Score</span><strong id="brScore">0</strong></div>
+          <div class="badge"><span class="small">关卡</span><strong id="brLevel">1</strong></div>
+          <div class="badge"><span class="small">球速</span><strong id="brSpeed">0</strong></div>
+        </div>
+        <canvas id="brCanvas" width="520" height="360"></canvas>
+        <div class="msg">
+          左右方向键 / A D 控制挡板。清空全部砖块升级并提速。球落到底部即失败。
+        </div>
+      </div>
+    </section>
+
+    <!-- Flappy -->
+    <section class="game" data-game="flappy">
+      <div class="panel">
+        <h2>Flappy 方块</h2>
+        <div class="toolbar">
+          <button id="fpStart" class="primary">开始 / 重开 (Enter)</button>
+          <button id="fpToggle">暂停 / 继续 (Space)</button>
+        </div>
+        <div class="status-box">
+          <div class="badge"><span class="small">Score</span><strong id="fpScore">0</strong></div>
+          <div class="badge"><span class="small">Best</span><strong id="fpBest">0</strong></div>
+          <div class="badge"><span class="small">状态</span><strong id="fpState">准备</strong></div>
+        </div>
+        <canvas id="fpCanvas" width="420" height="560"></canvas>
+        <div class="msg">
+          按 空格/↑/W 跳跃，穿过缺口得分。碰到管道或边界则结束。
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+    <div class="panel">
+      <h2>说明 & 扩展</h2>
+      <div class="flex-col">
+        <div class="warning"><strong>注意：</strong> 所有游戏均为前端纯 JS 演示。未使用外部库，适合作为教学或二次扩展基础。</div>
+        <div class="list-note">
+          <div>可扩展点：本地存档 / 排行榜 / 音效 / 皮肤主题 / 移动端手势适配。</div>
+          <div>输入冲突：切换 tab 后，当前游戏监听键盘；其他游戏保持闲置。</div>
+          <div>性能：实现均使用 requestAnimationFrame（定时逻辑混合）。</div>
+          <div>结构简化：为方便阅读，全部写在一个文件，可拆成模块化。</div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <footer>
+    Mini Games Suite © 2025 · Keyboard Friendly · 纯前端实现
+  </footer>
+
+  <script>
+    /***************** 通用 Tab 切换 *****************/
+    const games = [
+      { key:"snake", name:"贪吃蛇" },
+      { key:"2048", name:"2048" },
+      { key:"tictactoe", name:"井字棋" },
+      { key:"breakout", name:"打砖块" },
+      { key:"flappy", name:"Flappy" },
+    ];
+    const tabNav = document.getElementById("tabs");
+    let currentGameKey = "snake";
+    games.forEach(g=>{
+      const btn = document.createElement("button");
+      btn.textContent = g.name;
+      btn.dataset.target = g.key;
+      if(g.key === currentGameKey) btn.classList.add("active");
+      btn.addEventListener("click", ()=>{
+        switchGame(g.key);
+      });
+      tabNav.appendChild(btn);
+    });
+    function switchGame(key){
+      currentGameKey = key;
+      document.querySelectorAll("nav button").forEach(b=>{
+        b.classList.toggle("active", b.dataset.target===key);
+      });
+      document.querySelectorAll("section.game").forEach(sec=>{
+        sec.classList.toggle("active", sec.dataset.game===key);
+      });
+    }
+
+    /***************** 工具 *****************/
+    function randInt(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+    function clamp(v,min,max){ return v<min?min: v>max?max: v; }
+
+    /***************** SNAKE *****************/
+    ;(function(){
+      const cvs = document.getElementById("snakeCanvas");
+      const ctx = cvs.getContext("2d");
+      const scoreEl = document.getElementById("snakeScore");
+      const speedEl = document.getElementById("snakeSpeed");
+      const lenEl = document.getElementById("snakeLength");
+      const btnStart = document.getElementById("snakeStart");
+      const btnPause = document.getElementById("snakePause");
+      const speedDown = document.getElementById("snakeSpeedDown");
+      const speedUp = document.getElementById("snakeSpeedUp");
+      const GRID = 21;
+      const CELL = cvs.width / GRID;
+      let snake, dir, food, running=false, frame=0, speed=8, score=0, paused=false;
+      function init(){
+        snake = [{x:Math.floor(GRID/2), y:Math.floor(GRID/2)}];
+        dir = {x:1,y:0};
+        placeFood();
+        score = 0;
+        running=true;
+        paused=false;
+        speed = clamp(speed,4,20);
+        updateHUD();
+      }
+      function updateHUD(){
+        scoreEl.textContent = score;
+          speedEl.textContent = speed;
+        lenEl.textContent = snake.length;
+      }
+      function placeFood(){
+        while(true){
+          food = {x:randInt(0,GRID-1), y:randInt(0,GRID-1)};
+          if(!snake.some(s=>s.x===food.x && s.y===food.y)) break;
+        }
+      }
+      function step(){
+        if(!running || paused) return;
+        frame++;
+        if(frame % Math.floor(60/speed)===0){
+          const head = {x:snake[0].x+dir.x, y:snake[0].y+dir.y};
+          // collision
+          if(head.x<0||head.x>=GRID||head.y<0||head.y>=GRID ||
+            snake.some(s=>s.x===head.x && s.y===head.y)){
+            running=false;
+          } else {
+            snake.unshift(head);
+            if(head.x===food.x && head.y===food.y){
+              score += 10;
+              placeFood();
+            } else {
+              snake.pop();
+            }
+          }
+          updateHUD();
+        }
+        draw();
+        requestAnimationFrame(step);
+      }
+      function draw(){
+        ctx.fillStyle="#050b14";
+        ctx.fillRect(0,0,cvs.width,cvs.height);
+        // grid subtle
+        ctx.strokeStyle="#0f1b2a";
+        ctx.lineWidth=1;
+        for(let i=0;i<=GRID;i++){
+          ctx.beginPath(); ctx.moveTo(i*CELL,0); ctx.lineTo(i*CELL,cvs.height); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(0,i*CELL); ctx.lineTo(cvs.width,i*CELL); ctx.stroke();
+        }
+        // food
+        ctx.fillStyle="#10b981";
+        ctx.beginPath();
+        ctx.roundRect(food.x*CELL+3, food.y*CELL+3, CELL-6, CELL-6, 4);
+        ctx.fill();
+        // snake
+        snake.forEach((s,i)=>{
+          const hue = 200 + i*4;
+          ctx.fillStyle = i===0 ? "#3b82f6" : `hsl(${hue},60%,55%)`;
+          ctx.beginPath();
+          ctx.roundRect(s.x*CELL+2, s.y*CELL+2, CELL-4, CELL-4, i===0?6:4);
+          ctx.fill();
+        });
+        if(!running){
+          ctx.fillStyle="rgba(0,0,0,.55)";
+          ctx.fillRect(0,0,cvs.width,cvs.height);
+          ctx.fillStyle="#f87171";
+          ctx.font="24px system-ui";
+          ctx.textAlign="center";
+          ctx.fillText("游戏结束 - ENTER 重开", cvs.width/2, cvs.height/2);
+        } else if(paused){
+          ctx.fillStyle="rgba(0,0,0,.45)";
+          ctx.fillRect(0,0,cvs.width,cvs.height);
+          ctx.fillStyle="#93c5fd";
+          ctx.font="24px system-ui";
+          ctx.textAlign="center";
+          ctx.fillText("已暂停 - P 继续", cvs.width/2, cvs.height/2);
+        }
+      }
+      function changeDir(dx,dy){
+        if(!running) return;
+        if(-dx===dir.x && -dy===dir.y) return;
+        dir = {x:dx,y:dy};
+      }
+      btnStart.onclick=()=>{init(); requestAnimationFrame(step);};
+      btnPause.onclick=()=>{ if(running){ paused=!paused; draw(); } };
+      speedDown.onclick=()=>{ speed = clamp(speed-1,4,20); updateHUD(); };
+      speedUp.onclick=()=>{ speed = clamp(speed+1,4,20); updateHUD(); };
+      document.addEventListener("keydown", e=>{
+        if(currentGameKey!=="snake") return;
+        if(e.key==="Enter"){ init(); requestAnimationFrame(step); }
+        if(e.key==="p"||e.key==="P"){ if(running){ paused=!paused; } }
+        if(["ArrowUp","w","W"].includes(e.key)) changeDir(0,-1);
+        if(["ArrowDown","s","S"].includes(e.key)) changeDir(0,1);
+          if(["ArrowLeft","a","A"].includes(e.key)) changeDir(-1,0);
+          if(["ArrowRight","d","D"].includes(e.key)) changeDir(1,0);
+        if(e.key==="+"||e.key==="=") { speed = clamp(speed+1,4,20); updateHUD();}
+        if(e.key==="-"||e.key==="_") { speed = clamp(speed-1,4,20); updateHUD();}
+      });
+      init(); requestAnimationFrame(step);
+    })();
+
+    /***************** 2048 *****************/
+    ;(function(){
+      const gridEl = document.getElementById("g2048Grid");
+      const scoreEl = document.getElementById("g2048Score");
+      const bestEl = document.getElementById("g2048Best");
+      const stateEl = document.getElementById("g2048State");
+      const btnRestart = document.getElementById("g2048Restart");
+      const btnUndo = document.getElementById("g2048Undo");
+      let cells, score=0, best=Number(localStorage.getItem("g2048Best")||0),
+          state="进行中", history=[];
+      function emptyBoard(){
+        cells = new Array(16).fill(0);
+      }
+      function randomEmpty(){
+        const empties = cells.map((v,i)=>v===0?i:-1).filter(i=>i>=0);
+        if(!empties.length) return;
+        const idx = empties[randInt(0,empties.length-1)];
+        cells[idx] = Math.random()<0.9 ? 2 : 4;
+      }
+      function saveHistory(){
+        history.push({cells:[...cells], score});
+        if(history.length>20) history.shift();
+      }
+      function start(){
+        emptyBoard();
+        score=0; state="进行中"; history=[];
+        randomEmpty(); randomEmpty();
+        render();
+      }
+      function index(r,c){ return r*4+c; }
+      function move(dir){
+        if(state!=="进行中") return;
+        saveHistory();
+        let moved=false;
+        function compress(line){
+          const arr = line.filter(v=>v);
+          for(let i=0;i<arr.length-1;i++){
+            if(arr[i]===arr[i+1]){
+              arr[i]*=2;
+              score+=arr[i];
+              arr.splice(i+1,1);
+            }
+          }
+          while(arr.length<4) arr.push(0);
+          return arr;
+        }
+        for(let r=0;r<4;r++){
+          let line=[];
+          for(let c=0;c<4;c++){
+            if(dir==="left") line.push(cells[index(r,c)]);
+            if(dir==="right") line.push(cells[index(r,3-c)]);
+            if(dir==="up") line.push(cells[index(c,r)]);
+            if(dir==="down") line.push(cells[index(3-c,r)]);
+          }
+          const orig = line.join(",");
+          line = compress(line);
+          if(line.join(",")!==orig) moved=true;
+          for(let c=0;c<4;c++){
+            if(dir==="left") cells[index(r,c)] = line[c];
+            if(dir==="right") cells[index(r,3-c)] = line[c];
+            if(dir==="up") cells[index(c,r)] = line[c];
+            if(dir==="down") cells[index(3-c,r)] = line[c];
+          }
+        }
+        if(moved){
+          randomEmpty();
+          if(cells.some(v=>v===2048) && state==="进行中") state="胜利";
+          else if(!canMove()) state="结束";
+          updateHUD();
+          render();
+        } else {
+          history.pop();
+        }
+      }
+      function canMove(){
+        if(cells.includes(0)) return true;
+        for(let r=0;r<4;r++){
+          for(let c=0;c<4;c++){
+            const v=cells[index(r,c)];
+            if(c<3 && cells[index(r,c+1)]===v) return true;
+            if(r<3 && cells[index(r+1,c)]===v) return true;
+          }
+        }
+        return false;
+      }
+      function render(){
+        gridEl.innerHTML="";
+        cells.forEach(v=>{
+          const div=document.createElement("div");
+          div.className="tile";
+          div.dataset.v=v;
+          div.textContent=v? v: "";
+          gridEl.appendChild(div);
+        });
+      }
+      function updateHUD(){
+        scoreEl.textContent=score;
+        if(score>best){ best=score; localStorage.setItem("g2048Best", best); }
+        bestEl.textContent=best;
+        stateEl.textContent=state;
+      }
+      btnRestart.onclick=()=>start();
+      btnUndo.onclick=()=>{
+        const prev = history.pop();
+        if(prev){
+          cells = prev.cells;
+          score = prev.score;
+          state="进行中";
+          updateHUD();
+          render();
+        }
+      };
+      document.addEventListener("keydown", e=>{
+        if(currentGameKey!=="2048") return;
+        const map = {
+          ArrowLeft:"left", ArrowRight:"right", ArrowUp:"up", ArrowDown:"down",
+          a:"left", d:"right", w:"up", s:"down",
+          A:"left", D:"right", W:"up", S:"down"
+        };
+        if(map[e.key]) { e.preventDefault(); move(map[e.key]); }
+        if(e.key==="r"||e.key==="R") start();
+        if(e.key==="u"||e.key==="U") btnUndo.click();
+      });
+      start();
+      updateHUD();
+    })();
+
+    /***************** TICTACTOE *****************/
+    ;(function(){
+      const boardEl = document.getElementById("tttBoard");
+      const turnEl = document.getElementById("tttTurn");
+      const modeBtn = document.getElementById("tttMode");
+      const modeText = document.getElementById("tttModeText");
+      const resultEl = document.getElementById("tttResult");
+      const restartBtn = document.getElementById("tttRestart");
+      let board, turn, mode="pve", ended=false;
+      function init(){
+        board = Array(9).fill("");
+        turn="X";
+        ended=false;
+        render();
+        updateHUD();
+      }
+      function updateHUD(){
+        turnEl.textContent=turn;
+        modeText.textContent= mode==="pve"? "玩家 vs AI":"玩家 vs 玩家";
+        resultEl.textContent= ended || "-";
+      }
+      function winner(b){
+        const lines=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+        for(const [a,c,d] of lines){
+          if(b[a] && b[a]===b[c] && b[a]===b[d]) return {p:b[a], line:[a,c,d]};
+        }
+        if(b.every(v=>v)) return {p:"平局", line:[]};
+        return null;
+      }
+      function aiMove(){
+        // 简易策略：赢 > 阻挡 > 中心 > 角 > 其他
+        function tryWin(mark){
+          for(let i=0;i<9;i++){
+            if(!board[i]){
+              board[i]=mark;
+              if(winner(board)?.p===mark){ board[i]=""; return i; }
+              board[i]="";
+            }
+          }
+          return -1;
+        }
+        // AI = O
+          let idx = tryWin("O");
+          if(idx<0) idx = tryWin("X");
+        if(idx<0 && !board[4]) idx=4;
+        if(idx<0){
+          const corners=[0,2,6,8].filter(i=>!board[i]);
+          if(corners.length) idx = corners[Math.floor(Math.random()*corners.length)];
+        }
+        if(idx<0){
+          const empties = board.map((v,i)=>v? -1:i).filter(i=>i>=0);
+          if(empties.length) idx = empties[Math.floor(Math.random()*empties.length)];
+        }
+        if(idx>=0) {
+          board[idx]="O";
+          turn="X";
+        }
+      }
+      function play(i){
+        if(ended || board[i]) return;
+        board[i]=turn;
+        const win = winner(board);
+        if(win){
+          ended = win.p==="平局" ? "平局" : (win.p+" 胜利");
+          if(win.line.length) highlight(win.line);
+        } else {
+          turn = turn==="X" ? "O":"X";
+          if(mode==="pve" && turn==="O"){
+            aiMove();
+            const w2 = winner(board);
+            if(w2){
+              ended = w2.p==="平局"? "平局": (w2.p+" 胜利");
+              if(w2.line.length) highlight(w2.line);
+            } else {
+              turn="X";
+            }
+          }
+        }
+        render();
+        updateHUD();
+      }
+      function highlight(line){
+        line.forEach(i=>{
+          const cell = boardEl.querySelector(`[data-i="${i}"]`);
+          if(cell) cell.classList.add("win");
+        });
+      }
+      function render(){
+        boardEl.innerHTML="";
+        board.forEach((v,i)=>{
+          const div=document.createElement("div");
+          div.className="cell";
+          if(v) div.textContent=v;
+          div.dataset.i=i;
+          div.addEventListener("click",()=>play(i));
+          boardEl.appendChild(div);
+        });
+      }
+      modeBtn.onclick=()=>{
+        mode = mode==="pve"?"pvp":"pve";
+        init();
+      };
+      restartBtn.onclick=()=>init();
+      document.addEventListener("keydown", e=>{
+        if(currentGameKey!=="tictactoe") return;
+        if(e.key==="r"||e.key==="R") init();
+      });
+      init();
+    })();
+
+    /***************** BREAKOUT *****************/
+    ;(function(){
+      const cvs = document.getElementById("brCanvas");
+      const ctx = cvs.getContext("2d");
+      const scoreEl = document.getElementById("brScore");
+      const levelEl = document.getElementById("brLevel");
+      const speedEl = document.getElementById("brSpeed");
+      const btnStart = document.getElementById("brStart");
+      const btnPause = document.getElementById("brPause");
+      let paddle, ball, bricks, running=false, paused=false, level=1, score=0, lastTime=0, speed=0;
+      function reset(){
+        paddle = {x:cvs.width/2-45, y:cvs.height-30, w:90, h:14, vx:0};
+        ball = {x:cvs.width/2, y:cvs.height-70, r:8, vx:randInt(-140,140), vy:-180};
+        buildBricks();
+        running=true; paused=false;
+        lastTime=performance.now();
+      }
+      function buildBricks(){
+        bricks=[];
+        const rows=3+level, cols=8;
+        for(let r=0;r<rows;r++){
+          for(let c=0;c<cols;c++){
+            bricks.push({
+              x: 30 + c*58,
+              y: 40 + r*26,
+              w:50,
+              h:18,
+              hp:1+Math.floor(level/2),
+              hue:(r*30 + c*12 + level*20)%360
+            });
+          }
+        }
+      }
+      function update(dt){
+        if(!running||paused) return;
+        paddle.x += paddle.vx * dt;
+        paddle.x = clamp(paddle.x,0,cvs.width-paddle.w);
+        ball.x += ball.vx * dt;
+        ball.y += ball.vy * dt;
+        speed = Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy);
+        // wall
+        if(ball.x-ball.r<0){ ball.x=ball.r; ball.vx*=-1; }
+        if(ball.x+ball.r>cvs.width){ ball.x=cvs.width-ball.r; ball.vx*=-1; }
+        if(ball.y-ball.r<0){ ball.y=ball.r; ball.vy*=-1; }
+        if(ball.y-ball.r>cvs.height){
+          running=false;
+        }
+        // paddle collision
+        if(ball.y+ball.r>=paddle.y && ball.y+ball.r<=paddle.y+paddle.h && ball.x>=paddle.x && ball.x<=paddle.x+paddle.w){
+          ball.y = paddle.y - ball.r;
+          ball.vy = -Math.abs(ball.vy);
+          // add spin
+          const rel = (ball.x - (paddle.x+paddle.w/2))/(paddle.w/2);
+          ball.vx += rel * 120;
+        }
+        // bricks
+        for(const b of bricks){
+          if(b.hp<=0) continue;
+          if(ball.x > b.x && ball.x < b.x + b.w && ball.y - ball.r < b.y + b.h && ball.y + ball.r > b.y){
+            b.hp--;
+            score += 5;
+            // bounce vertical
+            ball.vy *= -1;
+            if(Math.random()<0.25) ball.vx += randInt(-30,30);
+            break;
+          }
+        }
+        if(bricks.every(b=>b.hp<=0)){
+          level++;
+          reset();
+          ball.vx *= 1.15;
+          ball.vy *= 1.15;
+        }
+        updateHUD();
+      }
+      function draw(){
+        ctx.fillStyle="#050b13";
+        ctx.fillRect(0,0,cvs.width,cvs.height);
+        // bricks
+        bricks.forEach(b=>{
+          if(b.hp<=0) return;
+          ctx.fillStyle = `hsl(${b.hue},70%,${45 + b.hp*8}%)`;
+          ctx.beginPath();
+          ctx.roundRect(b.x,b.y,b.w,b.h,4);
+          ctx.fill();
+          ctx.fillStyle="rgba(255,255,255,.25)";
+          ctx.fillRect(b.x,b.y,b.w,b.h*0.35);
+        });
+        // paddle
+        ctx.fillStyle="#3b82f6";
+        ctx.beginPath();
+        ctx.roundRect(paddle.x,paddle.y,paddle.w,paddle.h,5);
+        ctx.fill();
+        // ball
+        ctx.fillStyle="#fbbf24";
+        ctx.beginPath();
+        ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);
+        ctx.fill();
+        if(!running){
+          ctx.fillStyle="rgba(0,0,0,.6)";
+          ctx.fillRect(0,0,cvs.width,cvs.height);
+          ctx.fillStyle="#f87171";
+          ctx.font="22px system-ui";
+          ctx.textAlign="center";
+          ctx.fillText("游戏结束 - ENTER 重开", cvs.width/2, cvs.height/2);
+        } else if(paused){
+          ctx.fillStyle="rgba(0,0,0,.45)";
+          ctx.fillRect(0,0,cvs.width,cvs.height);
+          ctx.fillStyle="#93c5fd";
+          ctx.font="22px system-ui";
+          ctx.textAlign="center";
+          ctx.fillText("暂停中 - SPACE 继续", cvs.width/2, cvs.height/2);
+        }
+      }
+      function loop(ts){
+        const dt = (ts-lastTime)/1000;
+        lastTime=ts;
+        update(dt);
+        draw();
+        requestAnimationFrame(loop);
+      }
+      function updateHUD(){
+        scoreEl.textContent=score;
+        levelEl.textContent=level;
+        speedEl.textContent=(speed||0).toFixed(0);
+      }
+      document.addEventListener("keydown", e=>{
+        if(currentGameKey!=="breakout") return;
+        if(e.key==="ArrowLeft"||e.key==="a"||e.key==="A"){ paddle.vx=-300; }
+        if(e.key==="ArrowRight"||e.key==="d"||e.key==="D"){ paddle.vx=300; }
+        if(e.key===" "){
+          if(running) { paused=!paused; }
+        }
+        if(e.key==="Enter"){
+          reset();
+        }
+      });
+      document.addEventListener("keyup", e=>{
+        if(currentGameKey!=="breakout") return;
+        if(["ArrowLeft","ArrowRight","a","A","d","D"].includes(e.key)){
+          paddle.vx=0;
+        }
+      });
+      btnStart.onclick=()=>reset();
+      btnPause.onclick=()=>{ if(running) paused=!paused; };
+      reset();
+      requestAnimationFrame(loop);
+    })();
+
+    /***************** FLAPPY *****************/
+    ;(function(){
+      const cvs = document.getElementById("fpCanvas");
+      const ctx = cvs.getContext("2d");
+      const btnStart = document.getElementById("fpStart");
+      const btnToggle = document.getElementById("fpToggle");
+      const scoreEl = document.getElementById("fpScore");
+      const bestEl = document.getElementById("fpBest");
+      const stateEl = document.getElementById("fpState");
+      let bird, pipes, running=false, paused=false, score=0, best=Number(localStorage.getItem("fpBest")||0), frame=0;
+      function init(){
+        bird = {x:120, y:cvs.height/2, vy:0, r:14};
+        pipes = [];
+        score=0;
+        frame=0;
+        running=true;
+        paused=false;
+        stateEl.textContent="进行中";
+      }
+      function spawnPipe(){
+        const gap=140;
+        const mid = randInt(120, cvs.height-120);
+        const topH = mid - gap/2;
+        const botY = mid + gap/2;
+        pipes.push({
+          x:cvs.width+40,
+          w:70,
+          topH: topH,
+          botY: botY
+        });
+      }
+      function flap(){
+        if(!running){ init(); return; }
+        bird.vy = -320;
+      }
+      function update(dt){
+        if(!running || paused) return;
+        frame++;
+        if(frame % 120===0) spawnPipe();
+        bird.vy += 700*dt;
+        bird.y += bird.vy * dt;
+        // pipes move
+        pipes.forEach(p=> p.x -= 160*dt);
+        // remove off
+        while(pipes.length && pipes[0].x + pipes[0].w < -10) pipes.shift();
+        // collision
+        if(bird.y - bird.r <0 || bird.y + bird.r > cvs.height){
+          endGame();
+        }
+        pipes.forEach(p=>{
+          if(bird.x + bird.r > p.x && bird.x - bird.r < p.x + p.w){
+            if(bird.y - bird.r < p.topH || bird.y + bird.r > p.botY){
+              endGame();
+            }
+          }
+          if(!p.passed && p.x + p.w < bird.x - bird.r){
+            p.passed=true;
+            score++;
+            if(score>best){ best=score; localStorage.setItem("fpBest", best); }
+          }
+        });
+        updateHUD();
+      }
+      function endGame(){
+        running=false;
+        stateEl.textContent="结束";
+      }
+      function draw(){
+        ctx.fillStyle="#061120";
+        ctx.fillRect(0,0,cvs.width,cvs.height);
+        // gradient background
+        const grad = ctx.createLinearGradient(0,0,0,cvs.height);
+        grad.addColorStop(0,"#0f2747");
+        grad.addColorStop(1,"#04101e");
+        ctx.fillStyle=grad;
+        ctx.fillRect(0,0,cvs.width,cvs.height);
+        // pipes
+        pipes.forEach(p=>{
+          ctx.fillStyle="#1e3a8a";
+          ctx.beginPath();
+          ctx.roundRect(p.x,0,p.w,p.topH,6);
+          ctx.roundRect(p.x,p.botY,p.w,cvs.height-p.botY,6);
+          ctx.fill();
+          ctx.fillStyle="#3b82f6";
+          ctx.fillRect(p.x, p.topH-16, p.w, 16);
+          ctx.fillRect(p.x, p.botY, p.w, 16);
+        });
+        // bird
+        ctx.fillStyle="#fbbf24";
+        ctx.beginPath();
+        ctx.arc(bird.x,bird.y,bird.r,0,Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle="#000";
+        ctx.beginPath();
+        ctx.arc(bird.x+5,bird.y-4,4,0,Math.PI*2); ctx.fill();
+        if(!running){
+          ctx.fillStyle="rgba(0,0,0,.55)";
+          ctx.fillRect(0,0,cvs.width,cvs.height);
+          ctx.fillStyle="#f87171";
+          ctx.font="26px system-ui";
+          ctx.textAlign="center";
+          ctx.fillText("结束 - ENTER 重开", cvs.width/2, cvs.height/2);
+        } else if(paused){
+          ctx.fillStyle="rgba(0,0,0,.4)";
+          ctx.fillRect(0,0,cvs.width,cvs.height);
+          ctx.fillStyle="#93c5fd";
+          ctx.font="26px system-ui";
+          ctx.textAlign="center";
+          ctx.fillText("暂停 - SPACE 继续", cvs.width/2, cvs.height/2);
+        }
+      }
+      function loop(ts){
+        const dt=1/60; // 固定步长
+        update(dt);
+        draw();
+        requestAnimationFrame(loop);
+      }
+      function updateHUD(){
+        scoreEl.textContent=score;
+        bestEl.textContent=best;
+      }
+      btnStart.onclick=()=>{ init(); };
+      btnToggle.onclick=()=>{ if(running) { paused=!paused; stateEl.textContent = paused ? "暂停":"进行中"; } };
+      document.addEventListener("keydown", e=>{
+        if(currentGameKey!=="flappy") return;
+        if([" ","ArrowUp","w","W"].includes(e.key)){
+          e.preventDefault();
+          if(running && !paused) flap();
+        }
+        if(e.key==="Enter"){
+          init();
+        }
+        if(e.key===" "){
+          if(!running){ init(); }
+        }
+        if(e.key==="Escape"){ paused=!paused; stateEl.textContent = paused ? "暂停":"进行中"; }
+      });
+      init();
+      requestAnimationFrame(loop);
+    })();
+
+    /***************** 可选：聚焦当前 section 时滚动至顶部 *****************/
+    const observer = new MutationObserver(()=>{
+      const active = document.querySelector("section.game.active");
+      if(active) active.scrollIntoView({behavior:"smooth", block:"start"});
+    });
+    observer.observe(document.querySelector("main"), {attributes:true, subtree:true, attributeFilter:["class"]});
+  </script>
+</body>
+</html>
